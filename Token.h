@@ -27,14 +27,12 @@ enum class TokenType {
 
 using Literal = std::variant<std::monostate, double, std::string>;
 
-class Token {
-private:
-    const TokenType type;
-    const std::string lexeme;
-    const Literal literal;
-    const int line;
-public:
-    Token(TokenType type, std::string lexeme, Literal literal, int line);
+struct Token {
+    TokenType type{};
+    std::string lexeme;
+    Literal literal{};
+    int line{};
+
     std::string str() const;
 };
 

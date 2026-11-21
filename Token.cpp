@@ -2,10 +2,6 @@
 #include <string>
 #include <variant>
 
-Token::Token(TokenType type, std::string lexeme, Literal literal, int line)
-    : type(type), lexeme(lexeme), literal(literal), line(line)
-{}
-
 // Literal -> std::string
 static std::string stringify(const Literal &lit)
 {

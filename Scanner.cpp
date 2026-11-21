@@ -78,7 +78,7 @@ inline char Scanner::peek_next()
 
 inline void Scanner::add_token(TokenType type, const Literal &lit)
 {
-    tokens.emplace_back(type, std::string(source.substr(start, current - start)), lit, line);
+    tokens.push_back({type, std::string(source.substr(start, current - start)), lit, line});
 }
 
 inline void Scanner::add_token(TokenType type)
@@ -192,6 +192,6 @@ std::vector<Token> Scanner::scan_tokens()
         scan_token();
     }
 
-    tokens.emplace_back(TokenType::END_OF_FILE, "", std::monostate{}, line);
+    tokens.push_back({TokenType::END_OF_FILE, "", std::monostate{}, line});
     return std::move(tokens);
 }
