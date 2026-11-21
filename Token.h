@@ -25,15 +25,18 @@ enum class TokenType {
     END_OF_FILE
 };
 
-using Literal = std::variant<std::monostate, double, std::string>;
+// Literal Value
+using LitVal = std::variant<std::monostate, double, std::string>;
 
 struct Token {
     TokenType type{};
     std::string lexeme;
-    Literal literal{};
+    LitVal lit{};
     int line{};
 
     std::string str() const;
 };
+
+std::string stringify(const LitVal &lit);
 
 #endif // TOKEN_H

@@ -7,4 +7,4 @@ extern bool has_error;
 
 void error(int line, std::string msg);
 
-#endif
+#endif // BASE_H

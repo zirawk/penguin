@@ -76,7 +76,7 @@ inline char Scanner::peek_next()
     return source[current + 1];
 }
 
-inline void Scanner::add_token(TokenType type, const Literal &lit)
+inline void Scanner::add_token(TokenType type, const LitVal &lit)
 {
     tokens.push_back({type, std::string(source.substr(start, current - start)), lit, line});
 }

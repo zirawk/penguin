@@ -18,7 +18,7 @@ private:
     char peek();
     char peek_next();
     void scan_token();
-    void add_token(TokenType type, const Literal &lit);
+    void add_token(TokenType type, const LitVal &lit);
     void add_token(TokenType type);
     void string();
     void number();

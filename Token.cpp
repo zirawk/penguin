@@ -2,8 +2,8 @@
 #include <string>
 #include <variant>
 
-// Literal -> std::string
-static std::string stringify(const Literal &lit)
+// LitVal -> std::string
+std::string stringify(const LitVal &lit)
 {
     if (auto *d = std::get_if<double>(&lit))
         return std::to_string(*d);
@@ -15,5 +15,5 @@ static std::string stringify(const Literal &lit)
 std::string Token::str() const
 {
     return std::to_string(line) + " | " + std::to_string(static_cast<int>(type))
-        + " | " + lexeme + " | " + stringify(literal);
+        + " | " + lexeme + " | " + stringify(lit);
 }
