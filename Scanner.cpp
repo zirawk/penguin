@@ -106,8 +106,8 @@ void Scanner::string()
 
 void Scanner::number()
 {
-    // 就地转换为double
-    double value = 0;
+    // TODO 精度问题
+    double value = source[start] - '0';
     while (is_digit(peek())) value = value * 10 + (source[current++] - '0');
     // 此刻，current停在第一个非数字字符上
     if (peek() == '.' && is_digit(peek_next())) {
