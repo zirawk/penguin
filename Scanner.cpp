@@ -106,13 +106,19 @@ void Scanner::string()
 
 void Scanner::number()
 {
-    while (is_digit(peek())) ++current;
+    // 就地转换为double
+    double value = 0;
+    while (is_digit(peek())) value = value * 10 + (source[current++] - '0');
     // 此刻，current停在第一个非数字字符上
     if (peek() == '.' && is_digit(peek_next())) {
         ++current;
-        while (is_digit(peek())) ++current;
+        double frac = 0.1;
+        while (is_digit(peek())) {
+            value += frac * (source[current++] - '0');
+            frac *= 0.1;
+        }
     }
-    add_token(TokenType::NUMBER, std::stod(std::string(source.substr(start, current - start))));
+    add_token(TokenType::NUMBER, value);
 }
 
 void Scanner::identifier()
@@ -150,8 +156,6 @@ void Scanner::scan_token()
     case '/':
         if (match('/')) {
             // 处理注释
-            char ch;
-            //while (!at_end() && (ch = source[current++]) != '\n');
             // 关于为什么要把 !at_end() 放在后面：出现情况更少
             while (peek() != '\n' && !at_end()) ++current;
         } else {

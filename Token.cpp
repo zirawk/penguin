@@ -18,5 +18,6 @@ static std::string stringify(const Literal &lit)
 
 std::string Token::str() const
 {
-    return std::to_string(static_cast<int>(type)) + " " + lexeme + " " + stringify(literal);
+    return std::to_string(line) + " | " + std::to_string(static_cast<int>(type))
+        + " | " + lexeme + " | " + stringify(literal);
 }

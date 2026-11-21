@@ -21,6 +21,10 @@ void run(std::string source)
 void run_file(std::string path)
 {
     std::ifstream ifs(path);
+    if (!ifs) {
+        std::cerr << "Cannot open file: " << path << '\n';
+        exit(1);
+    }
     std::stringstream ss;
     ss << ifs.rdbuf();
     run(ss.str());
