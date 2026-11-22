@@ -2,7 +2,6 @@
 #define AST_PRINTER_H
 
 #include "Expr.h"
-#include <iostream>
 #include <string>
 
 class AstPrinter : public ExprVisitor {

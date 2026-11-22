@@ -56,9 +56,9 @@ struct Grouping : Expr {
 };
 
 struct Literal : Expr {
-    LitVal lit;
+    Value lit;
 
-    Literal(LitVal l) : lit(std::move(l)) {}
+    Literal(Value l) : lit(std::move(l)) {}
 
     virtual void accept(ExprVisitor &v) const override
     { v.visit(*this); }

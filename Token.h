@@ -2,7 +2,7 @@
 #define TOKEN_H
 
 #include <string>
-#include <variant>
+#include "value.h"
 
 enum class TokenType {
     // Single-character tokens.
@@ -25,18 +25,13 @@ enum class TokenType {
     END_OF_FILE
 };
 
-// Literal Value
-using LitVal = std::variant<std::monostate, bool, double, std::string>;
-
 struct Token {
     TokenType type{};
     std::string lexeme;
-    LitVal lit{};
+    Value literal{};
     int line{};
 
     std::string str() const;
 };
-
-std::string stringify(const LitVal &lit);
 
 #endif // TOKEN_H

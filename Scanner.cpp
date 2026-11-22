@@ -1,7 +1,7 @@
 #include "Scanner.h"
 
 #include "Token.h"
-#include "base.h"
+#include "error.h"
 #include <string>
 #include <array>
 #include <variant>
@@ -76,7 +76,7 @@ char Scanner::peek_next()
     return source[current + 1];
 }
 
-void Scanner::add_token(TokenType type, const LitVal &lit)
+void Scanner::add_token(TokenType type, const Value &lit)
 {
     tokens.push_back({type, std::string(source.substr(start, current - start)), std::move(lit), line});
 }

@@ -1,7 +1,7 @@
 #include "Parser.h"
 #include "Expr.h"
 #include "Token.h"
-#include "base.h"
+#include "error.h"
 #include <initializer_list>
 #include <memory>
 #include <string>
@@ -134,7 +134,7 @@ std::unique_ptr<Expr> Parser::primary()
     if (match({TRUE})) return std::make_unique<Literal>(true);
     if (match({NIL})) return std::make_unique<Literal>(std::monostate{});
 
-    if (match({NUMBER, STRING})) return std::make_unique<Literal>(previous().lit);
+    if (match({NUMBER, STRING})) return std::make_unique<Literal>(previous().literal);
 
     if (match({LEFT_PAREN})) {
         auto expr = expression();

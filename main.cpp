@@ -6,7 +6,7 @@
 #include "Scanner.h"
 #include "Parser.h"
 #include "Token.h"
-#include "base.h"
+#include "error.h"
 #include "AstPrinter.h"
 
 
