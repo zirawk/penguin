@@ -26,7 +26,7 @@ enum class TokenType {
 };
 
 // Literal Value
-using LitVal = std::variant<std::monostate, double, std::string>;
+using LitVal = std::variant<std::monostate, bool, double, std::string>;
 
 struct Token {
     TokenType type{};

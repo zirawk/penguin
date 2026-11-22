@@ -28,6 +28,9 @@ struct Binary : Expr {
     Token op;
     std::unique_ptr<Expr> right;
 
+    Binary(std::unique_ptr<Expr> l, Token o, std::unique_ptr<Expr> r)
+        : left(std::move(l)), op(std::move(o)), right(std::move(r)) {}
+
     virtual void accept(ExprVisitor &v) const override
     { v.visit(*this); }
 };
@@ -36,6 +39,9 @@ struct Unary : Expr {
     Token op;
     std::unique_ptr<Expr> right;
 
+    Unary(Token o, std::unique_ptr<Expr> r)
+        : op(std::move(o)), right(std::move(r)) {}
+
     virtual void accept(ExprVisitor &v) const override
     { v.visit(*this); }
 };
@@ -43,12 +49,16 @@ struct Unary : Expr {
 struct Grouping : Expr {
     std::unique_ptr<Expr> expr;
 
+    Grouping(std::unique_ptr<Expr> exp) : expr(std::move(exp)) {}
+
     virtual void accept(ExprVisitor &v) const override
     { v.visit(*this); }
 };
 
 struct Literal : Expr {
     LitVal lit;
+
+    Literal(LitVal l) : lit(std::move(l)) {}
 
     virtual void accept(ExprVisitor &v) const override
     { v.visit(*this); }

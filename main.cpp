@@ -4,8 +4,10 @@
 #include <sstream>
 #include <vector>
 #include "Scanner.h"
+#include "Parser.h"
 #include "Token.h"
 #include "base.h"
+#include "AstPrinter.h"
 
 
 void run(std::string source)
@@ -13,9 +15,13 @@ void run(std::string source)
     Scanner scanner(source);
     std::vector<Token> tokens = scanner.scan_tokens();
 
-    for (const auto &token : tokens) {
-        std::cout << token.str() << '\n';
-    }
+    Parser parser(tokens);
+    auto expr = parser.parse();
+
+    if (!expr) return;
+
+    AstPrinter printer;
+    std::cout << printer.print(*expr);
 }
 
 void run_file(std::string path)

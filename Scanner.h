@@ -6,6 +6,7 @@
 #include "Token.h"
 
 class Scanner {
+    using enum TokenType;
 private:
     const std::string_view source;
     std::vector<Token> tokens;

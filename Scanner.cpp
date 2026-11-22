@@ -52,36 +52,36 @@ constexpr bool is_alnum(char c)
 
 Scanner::Scanner(std::string_view src) : source(src), tokens(), start(0), current(0), line(1) {}
 
-inline bool Scanner::at_end()
+bool Scanner::at_end()
 {
     return current >= source.length();
 }
 
-inline bool Scanner::match(char c)
+bool Scanner::match(char c)
 {
     if (at_end() || source[current] != c) return false;
     ++current;
     return true;
 }
 
-inline char Scanner::peek()
+char Scanner::peek()
 {
     if (at_end()) return '\0';
     return source[current];
 }
 
-inline char Scanner::peek_next()
+char Scanner::peek_next()
 {
     if (current + 1 >= source.length()) return '\0';
     return source[current + 1];
 }
 
-inline void Scanner::add_token(TokenType type, const LitVal &lit)
+void Scanner::add_token(TokenType type, const LitVal &lit)
 {
-    tokens.push_back({type, std::string(source.substr(start, current - start)), lit, line});
+    tokens.push_back({type, std::string(source.substr(start, current - start)), std::move(lit), line});
 }
 
-inline void Scanner::add_token(TokenType type)
+void Scanner::add_token(TokenType type)
 {
     add_token(type, std::monostate{});
 }
@@ -94,14 +94,14 @@ void Scanner::string()
     }
 
     if (at_end()) {
-        error(line, "Unterminated string.\n");
+        error(line, "Unterminated string.");
         return;
     }
     // current -> "
 
     ++current;
     // [start + 1, current - 1) => npos == current - start - 2
-    add_token(TokenType::STRING, std::string(source.substr(start + 1, current - start - 2)));
+    add_token(STRING, std::string(source.substr(start + 1, current - start - 2)));
 }
 
 void Scanner::number()
@@ -118,7 +118,7 @@ void Scanner::number()
             frac *= 0.1;
         }
     }
-    add_token(TokenType::NUMBER, value);
+    add_token(NUMBER, value);
 }
 
 void Scanner::identifier()
@@ -131,27 +131,27 @@ void Scanner::scan_token()
 {
     char c = source[current++];
     switch (c) {
-    case '(': add_token(TokenType::LEFT_PAREN); break;
-    case ')': add_token(TokenType::RIGHT_PAREN); break;
-    case '{': add_token(TokenType::LEFT_BRACE); break;
-    case '}': add_token(TokenType::RIGHT_BRACE); break;
-    case ',': add_token(TokenType::COMMA); break;
-    case '.': add_token(TokenType::DOT); break;
-    case '-': add_token(TokenType::MINUS); break;
-    case '+': add_token(TokenType::PLUS); break;
-    case ';': add_token(TokenType::SEMICOLON); break;
-    case '*': add_token(TokenType::STAR); break;
+    case '(': add_token(LEFT_PAREN); break;
+    case ')': add_token(RIGHT_PAREN); break;
+    case '{': add_token(LEFT_BRACE); break;
+    case '}': add_token(RIGHT_BRACE); break;
+    case ',': add_token(COMMA); break;
+    case '.': add_token(DOT); break;
+    case '-': add_token(MINUS); break;
+    case '+': add_token(PLUS); break;
+    case ';': add_token(SEMICOLON); break;
+    case '*': add_token(STAR); break;
     case '!':
-        add_token(match('=') ? TokenType::BANG_EQUAL : TokenType::BANG);
+        add_token(match('=') ? BANG_EQUAL : BANG);
         break;
     case '=':
-        add_token(match('=') ? TokenType::EQUAL_EQUAL : TokenType::EQUAL);
+        add_token(match('=') ? EQUAL_EQUAL : EQUAL);
         break;
     case '<':
-        add_token(match('=') ? TokenType::LESS_EQUAL : TokenType::LESS);
+        add_token(match('=') ? LESS_EQUAL : LESS);
         break;
     case '>':
-        add_token(match('=') ? TokenType::GREATER_EQUAL : TokenType::GREATER);
+        add_token(match('=') ? GREATER_EQUAL : GREATER);
         break;
     case '/':
         if (match('/')) {
@@ -159,7 +159,7 @@ void Scanner::scan_token()
             // 关于为什么要把 !at_end() 放在后面：出现情况更少
             while (peek() != '\n' && !at_end()) ++current;
         } else {
-            add_token(TokenType::SLASH);
+            add_token(SLASH);
         }
         break;
 
@@ -178,7 +178,7 @@ void Scanner::scan_token()
         } else if (is_alpha(c)) {
             identifier();
         } else {
-            error(line, "Unexpected character.\n");
+            error(line, "Unexpected character.");
         }
         break;
     }
@@ -192,6 +192,6 @@ std::vector<Token> Scanner::scan_tokens()
         scan_token();
     }
 
-    tokens.push_back({TokenType::END_OF_FILE, "", std::monostate{}, line});
+    tokens.push_back({END_OF_FILE, "", std::monostate{}, line});
     return std::move(tokens);
 }
