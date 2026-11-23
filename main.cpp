@@ -5,9 +5,11 @@
 #include <vector>
 #include "Scanner.h"
 #include "Parser.h"
+#include "Interpreter.h"
 #include "Token.h"
 #include "error.h"
 #include "AstPrinter.h"
+#include "value.h"
 
 
 void run(std::string source)
@@ -21,7 +23,10 @@ void run(std::string source)
     if (!expr) return;
 
     AstPrinter printer;
-    std::cout << printer.print(*expr);
+    std::cout << printer.print(*expr) << '\n';
+
+    Interpreter interpreter;
+    std::cout << stringify(interpreter.interpret(*expr)) << '\n';
 }
 
 void run_file(std::string path)

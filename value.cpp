@@ -3,6 +3,7 @@
 #include <cmath>
 #include <string>
 #include <system_error>
+#include <variant>
 
 namespace{
 std::string number_to_string(double v)
