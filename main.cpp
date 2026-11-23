@@ -9,8 +9,9 @@
 #include "Token.h"
 #include "error.h"
 #include "AstPrinter.h"
-#include "value.h"
 
+namespace {
+Interpreter interpreter;
 
 void run(std::string source)
 {
@@ -18,15 +19,14 @@ void run(std::string source)
     std::vector<Token> tokens = scanner.scan_tokens();
 
     Parser parser(tokens);
-    auto expr = parser.parse();
+    auto stmts = parser.parse();
 
-    if (!expr) return;
+    if (has_error) return;
 
-    AstPrinter printer;
-    std::cout << printer.print(*expr) << '\n';
+    interpreter.interpret(stmts);
 
-    Interpreter interpreter;
-    std::cout << stringify(interpreter.interpret(*expr)) << '\n';
+    //AstPrinter printer;
+    //std::cout << printer.print(*expr) << '\n';
 }
 
 void run_file(std::string path)
@@ -52,6 +52,7 @@ void run_prompt()
         has_error = false;
     }
 }
+} // namespace
 
 int main(int argc, char **argv)
 {

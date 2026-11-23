@@ -1,27 +1,15 @@
 #include "Parser.h"
 #include "Expr.h"
+#include "Stmt.h"
 #include "Token.h"
 #include "error.h"
 #include <initializer_list>
 #include <memory>
 #include <string>
+#include <variant>
 #include <vector>
 
 Parser::Parser(std::vector<Token> tokens) : tokens(std::move(tokens)), current(0) {}
-
-std::unique_ptr<Expr> Parser::parse()
-{
-    try {
-        auto expr = expression();
-        // return局部变量，视为xvalue，默认move
-        // 但编译器也可以选择NVRO
-        if (at_end()) return expr;
-        error(peek(), "Expect end of expression.");
-        return nullptr;
-    } catch (const ParseError &) {
-        return nullptr;
-    }
-}
 
 bool Parser::at_end()
 {
@@ -57,11 +45,11 @@ bool Parser::match(std::initializer_list<TokenType> types)
     return false;
 }
 
-void Parser::consume(TokenType type, std::string msg)
+const Token &Parser::consume(TokenType type, std::string msg)
 {
     if (peek().type == type) {
         advance();
-        return;
+        return previous();
     }
     error(peek(), msg);
     throw ParseError{};
@@ -69,7 +57,27 @@ void Parser::consume(TokenType type, std::string msg)
 
 std::unique_ptr<Expr> Parser::expression()
 {
-    return equality();
+    return assignment();
+}
+
+std::unique_ptr<Expr> Parser::assignment()
+{
+    auto expr = equality();
+
+    // 处理赋值表达式
+    if (match({EQUAL})) {
+        const Token &equal = previous(); // for error()
+        auto value = assignment(); // 右结合
+        if (auto var = dynamic_cast<Variable *>(expr.get())) {
+            Token name = std::move(var->name);
+            return std::make_unique<Assign>(name, std::move(value));
+        }
+
+        error(equal, "Invalid assignment target.");
+        throw ParseError{};
+    }
+
+    return expr;
 }
 
 std::unique_ptr<Expr> Parser::equality()
@@ -135,9 +143,11 @@ std::unique_ptr<Expr> Parser::primary()
 
     if (match({NUMBER, STRING})) return std::make_unique<Literal>(previous().literal);
 
+    if (match({IDENTIFIER})) return std::make_unique<Variable>(previous());
+
     if (match({LEFT_PAREN})) {
         auto expr = expression();
-        consume(RIGHT_PAREN, "Expect ')' after expression.\n");
+        consume(RIGHT_PAREN, "Expect ')' after expression.");
         return std::make_unique<Grouping>(std::move(expr));
     }
     // Control flow shouldn't reach here
@@ -162,4 +172,60 @@ void Parser::synchronize()
 
         advance();
     }
+}
+
+std::unique_ptr<Stmt> Parser::declaration()
+{
+    try {
+        if (match({VAR})) return variable_declaration();
+        return statement();
+    } catch (const ParseError &) {
+        // 语句作为恢复单位，在此 sync
+        synchronize();
+        return nullptr;
+    }
+}
+
+std::unique_ptr<VarDeclStmt> Parser::variable_declaration()
+{
+    const Token &name = consume(IDENTIFIER, "Expect variable name.");
+
+    // 先置 nil，若有初始化表达式再更新
+    std::unique_ptr<Expr> initializer = std::make_unique<Literal>(std::monostate{});
+    if (match({EQUAL})) initializer = expression();
+
+    consume(SEMICOLON, "Expect ';' after variable declaration.");
+    // std::move(name) 不会起到任何作用，name 依然会被拷贝
+    // 原因见 std::move() 实现细节
+    return std::make_unique<VarDeclStmt>(name, std::move(initializer));
+}
+
+std::unique_ptr<Stmt> Parser::statement()
+{
+    if (match({PRINT})) return print_statement();
+    return expression_statement();
+}
+
+std::unique_ptr<ExprStmt> Parser::expression_statement()
+{
+    auto expr = expression();
+    consume(SEMICOLON, "Expect ';' after expression.");
+    return std::make_unique<ExprStmt>(std::move(expr));
+}
+
+std::unique_ptr<PrintStmt> Parser::print_statement()
+{
+    auto value = expression();
+    consume(SEMICOLON, "Expect ';' after value.");
+    return std::make_unique<PrintStmt>(std::move(value));
+}
+
+std::vector<std::unique_ptr<Stmt>> Parser::parse()
+{
+    std::vector<std::unique_ptr<Stmt>> stmts;
+    while (!at_end()) {
+        if (auto stmt = declaration())
+            stmts.push_back(std::move(stmt));
+    }
+    return stmts;
 }

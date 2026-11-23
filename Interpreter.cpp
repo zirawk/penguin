@@ -2,7 +2,10 @@
 #include "Token.h"
 #include "value.h"
 #include "error.h"
+#include <iostream>
+#include <memory>
 #include <variant>
+#include <vector>
 
 double Interpreter::number(const Value &v, const Token &op)
 {
@@ -21,6 +24,13 @@ Value Interpreter::add(const Value &l, const Value &r, const Token &op)
     if (ls && rs) return *ls + *rs;
     error(op, "Operands must be numbers or strings.");
     throw RuntimeError{};
+}
+
+// 赋值表达式 - 对表达式求值同时完成赋值
+void Interpreter::visit(const Assign &o)
+{
+    o.value->accept(*this);
+    env.assign(o.name, result);
 }
 
 void Interpreter::visit(const Binary &o)
@@ -96,12 +106,36 @@ void Interpreter::visit(const Literal &o)
     result = o.lit;
 }
 
-Value Interpreter::interpret(const Expr &expr)
+void Interpreter::visit(const Variable &o)
+{
+    result = env.get(o.name);
+}
+
+void Interpreter::visit(const ExprStmt &o)
+{
+    // Interpreter as ExprVisitor，作用为求值
+    o.expr->accept(*this);
+}
+
+void Interpreter::visit(const VarDeclStmt &o)
+{
+    // 对变量的初始化表达式求值
+    o.initializer->accept(*this);
+    env.define(o.name.lexeme, result);
+}
+
+void Interpreter::visit(const PrintStmt &o)
+{
+    o.expr->accept(*this);
+    std::cout << stringify(result) << '\n';
+}
+
+void Interpreter::interpret(const std::vector<std::unique_ptr<Stmt>> &stmts)
 {
     try {
-        expr.accept(*this);
+        // Interpreter as StmtVisitor，作用为执行语句
+        for (const auto &stmt : stmts) stmt->accept(*this);
     } catch (const RuntimeError &) {
-        return std::monostate{};
+        // error() 已报告，停止执行剩余语句
     }
-    return result;
 }

@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include "Expr.h"
+#include "Stmt.h"
 #include "Token.h"
 
 struct ParseError {};
@@ -21,9 +22,11 @@ private:
     const Token &previous();
     const Token &advance();
     bool match(std::initializer_list<TokenType> types);
-    void consume(TokenType type, std::string msg);
+    const Token &consume(TokenType type, std::string msg);
 
+    // Handle expressions
     std::unique_ptr<Expr> expression();
+    std::unique_ptr<Expr> assignment();
     std::unique_ptr<Expr> equality();
     std::unique_ptr<Expr> comparison();
     std::unique_ptr<Expr> term();
@@ -31,10 +34,20 @@ private:
     std::unique_ptr<Expr> unary();
     std::unique_ptr<Expr> primary();
 
+    // Handle statements
+    std::unique_ptr<Stmt> declaration();
+    std::unique_ptr<VarDeclStmt> variable_declaration();
+    std::unique_ptr<Stmt> statement();
+    std::unique_ptr<ExprStmt> expression_statement();
+    std::unique_ptr<PrintStmt> print_statement();
+
     void synchronize();
 public:
     Parser(std::vector<Token> tokens);
-    std::unique_ptr<Expr> parse();
+
+    // 尽管目前所有 error() 的位置都会 throw RuntimeError
+    // 仍不建议在 has_error == true 的情况下执行 parse() 产生的 AST
+    std::vector<std::unique_ptr<Stmt>> parse();
 };
 
 #endif // PARSER_H

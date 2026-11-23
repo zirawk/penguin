@@ -4,23 +4,38 @@
 #include "Token.h"
 #include <memory>
 
+struct Assign;
 struct Binary;
 struct Unary;
 struct Grouping;
 struct Literal;
+struct Variable;
 
 class ExprVisitor {
 public:
     virtual ~ExprVisitor() = default;
+    virtual void visit(const Assign &o) = 0;
     virtual void visit(const Binary &o) = 0;
     virtual void visit(const Unary &o) = 0;
     virtual void visit(const Grouping &o) = 0;
     virtual void visit(const Literal &o) = 0;
+    virtual void visit(const Variable &o) = 0;
 };
 
 struct Expr {
     virtual ~Expr() = default;
     virtual void accept(ExprVisitor &v) const = 0;
+};
+
+struct Assign : Expr {
+    Token name;
+    std::unique_ptr<Expr> value;
+
+    Assign(Token nm, std::unique_ptr<Expr> val)
+        : name(std::move(nm)), value(std::move(val)) {}
+
+    virtual void accept(ExprVisitor &v) const override
+    { v.visit(*this); }
 };
 
 struct Binary : Expr {
@@ -59,6 +74,15 @@ struct Literal : Expr {
     Value lit;
 
     Literal(Value l) : lit(std::move(l)) {}
+
+    virtual void accept(ExprVisitor &v) const override
+    { v.visit(*this); }
+};
+
+struct Variable : Expr {
+    Token name;
+
+    Variable(Token nm) : name(std::move(nm)) {}
 
     virtual void accept(ExprVisitor &v) const override
     { v.visit(*this); }

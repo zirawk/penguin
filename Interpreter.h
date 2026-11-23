@@ -1,23 +1,37 @@
 #ifndef INTERPRETER_H
 #define INTERPRETER_H
 
+#include "Environment.h"
 #include "Expr.h"
+#include "Stmt.h"
 #include "Token.h"
 #include "value.h"
+#include <memory>
+#include <vector>
 
-class Interpreter : public ExprVisitor {
+class Interpreter : public ExprVisitor, public StmtVisitor {
     using enum TokenType;
 private:
+    Environment env;
     Value result;
 
     static double number(const Value &v, const Token &op);
     static Value add(const Value &l, const Value &r, const Token &op);
+
+    // Visit expressions
+    virtual void visit(const Assign &o) override;
     virtual void visit(const Binary &o) override;
     virtual void visit(const Unary &o) override;
     virtual void visit(const Grouping &o) override;
     virtual void visit(const Literal &o) override;
+    virtual void visit(const Variable &o) override;
+
+    // Visit statements
+    virtual void visit(const ExprStmt &o) override;
+    virtual void visit(const VarDeclStmt &o) override;
+    virtual void visit(const PrintStmt &o) override;
 public:
-    Value interpret(const Expr &expr);
+    void interpret(const std::vector<std::unique_ptr<Stmt>> &stmts);
 };
 
 #endif // INTERPRETER_H
