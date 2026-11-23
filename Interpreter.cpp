@@ -6,18 +6,18 @@
 
 double Interpreter::number(const Value &v, const Token &op)
 {
-    if (auto *d = std::get_if<double>(&v)) return *d;
+    if (auto d = std::get_if<double>(&v)) return *d;
     error(op, "Operand must be a number.");
     throw RuntimeError{};
 }
 
 Value Interpreter::add(const Value &l, const Value &r, const Token &op)
 {
-    auto *ld = std::get_if<double>(&l);
-    auto *rd = std::get_if<double>(&r);
+    auto ld = std::get_if<double>(&l);
+    auto rd = std::get_if<double>(&r);
     if (ld && rd) return *ld + *rd;
-    auto *ls = std::get_if<std::string>(&l);
-    auto *rs = std::get_if<std::string>(&r);
+    auto ls = std::get_if<std::string>(&l);
+    auto rs = std::get_if<std::string>(&r);
     if (ls && rs) return *ls + *rs;
     error(op, "Operands must be numbers or strings.");
     throw RuntimeError{};

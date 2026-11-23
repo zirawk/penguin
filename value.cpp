@@ -21,11 +21,11 @@ std::string number_to_string(double v)
 // Value -> std::string
 std::string stringify(const Value &v)
 {
-    if (auto *b = std::get_if<bool>(&v))
+    if (auto b = std::get_if<bool>(&v))
         return *b ? "true" : "false";
-    if (auto *d = std::get_if<double>(&v))
+    if (auto d = std::get_if<double>(&v))
         return number_to_string(*d);
-    if (auto *s = std::get_if<std::string>(&v))
+    if (auto s = std::get_if<std::string>(&v))
         return *s;
     return "nil";
 }

@@ -5,7 +5,6 @@
 #include <initializer_list>
 #include <memory>
 #include <string>
-#include <variant>
 #include <vector>
 
 Parser::Parser(std::vector<Token> tokens) : tokens(std::move(tokens)), current(0) {}

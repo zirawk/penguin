@@ -8,7 +8,7 @@ using Value = std::variant<std::monostate, bool, double, std::string>;
 
 constexpr bool boolean(const Value &v)
 {
-    if (auto *b = std::get_if<bool>(&v)) {
+    if (auto b = std::get_if<bool>(&v)) {
         return *b;
     } else if (std::holds_alternative<std::monostate>(v)) {
         return false;
