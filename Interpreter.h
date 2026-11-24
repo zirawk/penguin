@@ -12,7 +12,8 @@
 class Interpreter : public ExprVisitor, public StmtVisitor {
     using enum TokenType;
 private:
-    Environment env;
+    Environment global;
+    Environment *env = &global;
     Value result;
 
     static double number(const Value &v, const Token &op);
@@ -20,6 +21,7 @@ private:
 
     // Visit expressions
     virtual void visit(const Assign &o) override;
+    virtual void visit(const Logical &o) override;
     virtual void visit(const Binary &o) override;
     virtual void visit(const Unary &o) override;
     virtual void visit(const Grouping &o) override;
@@ -29,6 +31,9 @@ private:
     // Visit statements
     virtual void visit(const ExprStmt &o) override;
     virtual void visit(const VarDeclStmt &o) override;
+    virtual void visit(const BlockStmt &o) override;
+    virtual void visit(const IfStmt &o) override;
+    virtual void visit(const WhileStmt &o) override;
     virtual void visit(const PrintStmt &o) override;
 public:
     void interpret(const std::vector<std::unique_ptr<Stmt>> &stmts);

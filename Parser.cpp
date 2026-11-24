@@ -62,7 +62,7 @@ std::unique_ptr<Expr> Parser::expression()
 
 std::unique_ptr<Expr> Parser::assignment()
 {
-    auto expr = equality();
+    auto expr = logic_or();
 
     // 处理赋值表达式
     if (match({EQUAL})) {
@@ -77,6 +77,28 @@ std::unique_ptr<Expr> Parser::assignment()
         throw ParseError{};
     }
 
+    return expr;
+}
+
+std::unique_ptr<Expr> Parser::logic_or()
+{
+    auto expr = logic_and();
+    while (match({OR})) {
+        Token op = previous();
+        auto right = logic_and();
+        expr = std::make_unique<Logical>(std::move(expr), std::move(op), std::move(right));
+    }
+    return expr;
+}
+
+std::unique_ptr<Expr> Parser::logic_and()
+{
+    auto expr = equality();
+    while (match({AND})) {
+        Token op = previous();
+        auto right = equality();
+        expr = std::make_unique<Logical>(std::move(expr), std::move(op), std::move(right));
+    }
     return expr;
 }
 
@@ -151,7 +173,7 @@ std::unique_ptr<Expr> Parser::primary()
         return std::make_unique<Grouping>(std::move(expr));
     }
     // Control flow shouldn't reach here
-    error(peek(), "Expected expression.");
+    error(peek(), "Expect expression.");
     throw ParseError{};
 }
 
@@ -203,6 +225,10 @@ std::unique_ptr<VarDeclStmt> Parser::variable_declaration()
 std::unique_ptr<Stmt> Parser::statement()
 {
     if (match({PRINT})) return print_statement();
+    if (match({LEFT_BRACE})) return block_statement();
+    if (match({IF})) return if_statement();
+    if (match({WHILE})) return while_statement();
+    if (match({FOR})) return for_statement();
     return expression_statement();
 }
 
@@ -211,6 +237,80 @@ std::unique_ptr<ExprStmt> Parser::expression_statement()
     auto expr = expression();
     consume(SEMICOLON, "Expect ';' after expression.");
     return std::make_unique<ExprStmt>(std::move(expr));
+}
+
+std::unique_ptr<BlockStmt> Parser::block_statement()
+{
+    std::vector<std::unique_ptr<Stmt>> stmts;
+    // 为什么不 !match({RIGHT_BRACE}) && !at_end()
+    // 若这样做，就不能直接 consume 而要取 previous() 来判断是哪种情形
+    while (peek().type != RIGHT_BRACE && !at_end()) {
+        stmts.push_back(declaration());
+    }
+    consume(RIGHT_BRACE, "Expect '}' after block.");
+    return std::make_unique<BlockStmt>(std::move(stmts));
+}
+
+std::unique_ptr<IfStmt> Parser::if_statement()
+{
+    consume(LEFT_PAREN, "Expect '(' after 'if'.");
+    auto cond = expression();
+    consume(RIGHT_PAREN, "Expect ')' after 'if' condition.");
+    auto then_stmt = statement();
+    std::unique_ptr<Stmt> else_stmt = nullptr;
+    if (match({ELSE})) else_stmt = statement();
+    return std::make_unique<IfStmt>(std::move(cond), std::move(then_stmt), std::move(else_stmt));
+}
+
+std::unique_ptr<WhileStmt> Parser::while_statement()
+{
+    consume(LEFT_PAREN, "Expect '(' after 'while'.");
+    auto cond = expression();
+    consume(RIGHT_PAREN, "Expect ')' after 'while' condition.");
+    auto body = statement();
+    return std::make_unique<WhileStmt>(std::move(cond), std::move(body));
+}
+
+std::unique_ptr<Stmt> Parser::for_statement()
+{
+    consume(LEFT_PAREN, "Expect '(' after 'for'.");
+
+    std::unique_ptr<Stmt> init;
+    if (match({SEMICOLON})) init = nullptr;
+    else if (match({VAR})) init = variable_declaration();
+    else init = expression_statement();
+
+    std::unique_ptr<Expr> cond = std::make_unique<Literal>(true);
+    if (peek().type != SEMICOLON) cond = expression();
+    consume(SEMICOLON, "Expect ';' after 'for' condition.");
+
+    std::unique_ptr<Expr> incr = nullptr;
+    if (peek().type != RIGHT_PAREN) incr = expression();
+    consume(RIGHT_PAREN, "Expect ';' after 'for' clauses.");
+
+    // body - for 循环体
+    auto body = statement();
+
+    if (incr) {
+        std::vector<std::unique_ptr<Stmt>> while_body;
+        while_body.push_back(std::move(body));
+        while_body.push_back(std::make_unique<ExprStmt>(std::move(incr)));
+        // body - for 循环体 + 增量表达式 组成的块
+        body = std::make_unique<BlockStmt>(std::move(while_body));
+    }
+
+    // body - while 语句
+    body = std::make_unique<WhileStmt>(std::move(cond), std::move(body));
+
+    if (init) {
+        std::vector<std::unique_ptr<Stmt>> whole_body;
+        whole_body.push_back(std::move(init));
+        whole_body.push_back(std::move(body));
+        // body - 初始化语句 + while 语句 组成的块
+        body = std::make_unique<BlockStmt>(std::move(whole_body));
+    }
+
+    return body;
 }
 
 std::unique_ptr<PrintStmt> Parser::print_statement()

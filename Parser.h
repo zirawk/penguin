@@ -27,6 +27,8 @@ private:
     // Handle expressions
     std::unique_ptr<Expr> expression();
     std::unique_ptr<Expr> assignment();
+    std::unique_ptr<Expr> logic_or();
+    std::unique_ptr<Expr> logic_and();
     std::unique_ptr<Expr> equality();
     std::unique_ptr<Expr> comparison();
     std::unique_ptr<Expr> term();
@@ -39,6 +41,10 @@ private:
     std::unique_ptr<VarDeclStmt> variable_declaration();
     std::unique_ptr<Stmt> statement();
     std::unique_ptr<ExprStmt> expression_statement();
+    std::unique_ptr<BlockStmt> block_statement();
+    std::unique_ptr<IfStmt> if_statement();
+    std::unique_ptr<WhileStmt> while_statement();
+    std::unique_ptr<Stmt> for_statement();
     std::unique_ptr<PrintStmt> print_statement();
 
     void synchronize();

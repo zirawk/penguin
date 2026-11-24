@@ -1,4 +1,5 @@
 #include "Interpreter.h"
+#include "Environment.h"
 #include "Token.h"
 #include "value.h"
 #include "error.h"
@@ -6,6 +7,26 @@
 #include <memory>
 #include <variant>
 #include <vector>
+
+namespace {
+// RAII
+class EnvGuard {
+private:
+    Environment *&slot;
+    Environment *saved;
+public:
+    // 初始化引用，保存原始值
+    EnvGuard(Environment *&slot_, Environment *e) : slot(slot_), saved(slot_)
+    { slot = e; } // 赋新值
+    
+    EnvGuard(const EnvGuard &) = delete;
+    EnvGuard &operator=(const EnvGuard &) = delete;
+
+    // 析构时恢复原始值
+    ~EnvGuard()
+    { slot = saved; }
+};
+}
 
 double Interpreter::number(const Value &v, const Token &op)
 {
@@ -30,7 +51,22 @@ Value Interpreter::add(const Value &l, const Value &r, const Token &op)
 void Interpreter::visit(const Assign &o)
 {
     o.value->accept(*this);
-    env.assign(o.name, result);
+    env->assign(o.name, result);
+}
+
+// 与 Lua 相似，逻辑运算的结果未必是布尔值
+void Interpreter::visit(const Logical &o)
+{
+    o.left->accept(*this);
+
+    // 短路
+    if (o.op.type == AND) {
+        // left 为真 -> 返回 right  否则保持 left
+        if (boolean(result)) o.right->accept(*this);
+    } else { // OR
+        // left 为假 -> 返回 right  否则保持 left
+        if (!boolean(result)) o.right->accept(*this);
+    }
 }
 
 void Interpreter::visit(const Binary &o)
@@ -91,7 +127,7 @@ void Interpreter::visit(const Unary &o)
         result = -number(result, o.op);
         break;
     default:
-        break; // 理论上，这条分支不可能到达
+        break; // Unreachable
     }
 }
 
@@ -108,7 +144,7 @@ void Interpreter::visit(const Literal &o)
 
 void Interpreter::visit(const Variable &o)
 {
-    result = env.get(o.name);
+    result = env->get(o.name);
 }
 
 void Interpreter::visit(const ExprStmt &o)
@@ -121,7 +157,33 @@ void Interpreter::visit(const VarDeclStmt &o)
 {
     // 对变量的初始化表达式求值
     o.initializer->accept(*this);
-    env.define(o.name.lexeme, result);
+    env->define(o.name.lexeme, result);
+}
+
+void Interpreter::visit(const BlockStmt &o)
+{
+    Environment block(env);
+    // guard 分配在栈上，出栈析构(在block之前)
+    // 即使发生异常，也能恢复原环境
+    EnvGuard guard(env, &block);
+    for (auto &stmt : o.stmts) stmt->accept(*this);
+}
+
+void Interpreter::visit(const IfStmt &o)
+{
+    o.condition->accept(*this);
+    if (boolean(result)) {
+        o.then_stmt->accept(*this);
+    } else if (o.else_stmt) {
+        o.else_stmt->accept(*this);
+    }
+}
+
+void Interpreter::visit(const WhileStmt &o)
+{
+    while (o.condition->accept(*this), boolean(result)) {
+        o.body->accept(*this);
+    }
 }
 
 void Interpreter::visit(const PrintStmt &o)
