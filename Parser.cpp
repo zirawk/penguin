@@ -9,7 +9,23 @@
 #include <variant>
 #include <vector>
 
-Parser::Parser(std::vector<Token> tokens) : tokens(std::move(tokens)), current(0) {}
+namespace {
+class LoopGuard {
+private:
+    int &slot;
+public:
+    LoopGuard(int &slot_) : slot(slot_)
+    { ++slot; }
+
+    LoopGuard(const LoopGuard &) = delete;
+    LoopGuard &operator=(const LoopGuard &) = delete;
+
+    ~LoopGuard() { --slot; }
+};
+}
+
+Parser::Parser(std::vector<Token> tokens)
+    : tokens(std::move(tokens)), current(0), loop_depth(0) {}
 
 bool Parser::at_end()
 {
@@ -229,6 +245,8 @@ std::unique_ptr<Stmt> Parser::statement()
     if (match({IF})) return if_statement();
     if (match({WHILE})) return while_statement();
     if (match({FOR})) return for_statement();
+    if (match({BREAK})) return break_statement();
+    if (match({CONTINUE})) return continue_statement();
     return expression_statement();
 }
 
@@ -264,15 +282,20 @@ std::unique_ptr<IfStmt> Parser::if_statement()
 
 std::unique_ptr<WhileStmt> Parser::while_statement()
 {
+    LoopGuard guard(loop_depth);
+
     consume(LEFT_PAREN, "Expect '(' after 'while'.");
     auto cond = expression();
     consume(RIGHT_PAREN, "Expect ')' after 'while' condition.");
     auto body = statement();
+
     return std::make_unique<WhileStmt>(std::move(cond), std::move(body));
 }
 
-std::unique_ptr<Stmt> Parser::for_statement()
+std::unique_ptr<ForStmt> Parser::for_statement()
 {
+    LoopGuard guard(loop_depth);
+
     consume(LEFT_PAREN, "Expect '(' after 'for'.");
 
     std::unique_ptr<Stmt> init;
@@ -280,38 +303,85 @@ std::unique_ptr<Stmt> Parser::for_statement()
     else if (match({VAR})) init = variable_declaration();
     else init = expression_statement();
 
-    std::unique_ptr<Expr> cond = std::make_unique<Literal>(true);
+    std::unique_ptr<Expr> cond;
     if (peek().type != SEMICOLON) cond = expression();
+    else cond = std::make_unique<Literal>(true);
     consume(SEMICOLON, "Expect ';' after 'for' condition.");
 
     std::unique_ptr<Expr> incr = nullptr;
     if (peek().type != RIGHT_PAREN) incr = expression();
-    consume(RIGHT_PAREN, "Expect ';' after 'for' clauses.");
 
-    // body - for 循环体
+    consume(RIGHT_PAREN, "Expect ')' after 'for' clauses.");
+
     auto body = statement();
 
-    if (incr) {
-        std::vector<std::unique_ptr<Stmt>> while_body;
-        while_body.push_back(std::move(body));
-        while_body.push_back(std::make_unique<ExprStmt>(std::move(incr)));
-        // body - for 循环体 + 增量表达式 组成的块
-        body = std::make_unique<BlockStmt>(std::move(while_body));
-    }
-
-    // body - while 语句
-    body = std::make_unique<WhileStmt>(std::move(cond), std::move(body));
-
-    if (init) {
-        std::vector<std::unique_ptr<Stmt>> whole_body;
-        whole_body.push_back(std::move(init));
-        whole_body.push_back(std::move(body));
-        // body - 初始化语句 + while 语句 组成的块
-        body = std::make_unique<BlockStmt>(std::move(whole_body));
-    }
-
-    return body;
+    return std::make_unique<ForStmt>(std::move(init), std::move(cond), std::move(incr), std::move(body));
 }
+
+std::unique_ptr<BreakStmt> Parser::break_statement()
+{
+    if (loop_depth == 0) {
+        error(previous(), "'break' not in loop.");
+        throw ParseError{};
+    }
+    consume(SEMICOLON, "Expect ';' after 'break'.");
+    return std::make_unique<BreakStmt>();
+}
+
+std::unique_ptr<ContinueStmt> Parser::continue_statement()
+{
+    if (loop_depth == 0) {
+        error(previous(), "'continue' not in loop.");
+        throw ParseError{};
+    }
+    consume(SEMICOLON, "Expect ';' after 'continue'.");
+    return std::make_unique<ContinueStmt>();
+}
+
+// Desugar
+// std::unique_ptr<Stmt> Parser::for_statement()
+// {
+//     LoopGuard guard(loop_depth);
+// 
+//     consume(LEFT_PAREN, "Expect '(' after 'for'.");
+// 
+//     std::unique_ptr<Stmt> init;
+//     if (match({SEMICOLON})) init = nullptr;
+//     else if (match({VAR})) init = variable_declaration();
+//     else init = expression_statement();
+// 
+//     std::unique_ptr<Expr> cond = std::make_unique<Literal>(true);
+//     if (peek().type != SEMICOLON) cond = expression();
+//     consume(SEMICOLON, "Expect ';' after 'for' condition.");
+// 
+//     std::unique_ptr<Expr> incr = nullptr;
+//     if (peek().type != RIGHT_PAREN) incr = expression();
+//     consume(RIGHT_PAREN, "Expect ';' after 'for' clauses.");
+// 
+//     // body - for 循环体
+//     auto body = statement();
+// 
+//     if (incr) {
+//         std::vector<std::unique_ptr<Stmt>> while_body;
+//         while_body.push_back(std::move(body));
+//         while_body.push_back(std::make_unique<ExprStmt>(std::move(incr)));
+//         // body - for 循环体 + 增量表达式 组成的块
+//         body = std::make_unique<BlockStmt>(std::move(while_body));
+//     }
+// 
+//     // body - while 语句
+//     body = std::make_unique<WhileStmt>(std::move(cond), std::move(body));
+// 
+//     if (init) {
+//         std::vector<std::unique_ptr<Stmt>> whole_body;
+//         whole_body.push_back(std::move(init));
+//         whole_body.push_back(std::move(body));
+//         // body - 初始化语句 + while 语句 组成的块
+//         body = std::make_unique<BlockStmt>(std::move(whole_body));
+//     }
+// 
+//     return body;
+// }
 
 std::unique_ptr<PrintStmt> Parser::print_statement()
 {

@@ -1,5 +1,6 @@
 #include "Interpreter.h"
 #include "Environment.h"
+#include "Stmt.h"
 #include "Token.h"
 #include "value.h"
 #include "error.h"
@@ -9,7 +10,6 @@
 #include <vector>
 
 namespace {
-// RAII
 class EnvGuard {
 private:
     Environment *&slot;
@@ -26,6 +26,9 @@ public:
     ~EnvGuard()
     { slot = saved; }
 };
+
+struct Break {};
+struct Continue {};
 }
 
 double Interpreter::number(const Value &v, const Token &op)
@@ -182,8 +185,40 @@ void Interpreter::visit(const IfStmt &o)
 void Interpreter::visit(const WhileStmt &o)
 {
     while (o.condition->accept(*this), boolean(result)) {
-        o.body->accept(*this);
+        try {
+            o.body->accept(*this);
+        } catch (const Break &) {
+            return; // 捕获 Break 信号，终止循环
+        } catch (const Continue &) {}
     }
+}
+
+void Interpreter::visit(const ForStmt &o)
+{
+    Environment loop(env);
+    EnvGuard guard(env, &loop);
+
+    if (o.initializer) o.initializer->accept(*this);
+
+    while (o.condition->accept(*this), boolean(result)) {
+        try {
+            o.body->accept(*this);
+        } catch (const Break &) {
+            return;
+        } catch (const Continue &) {}
+
+        if (o.increment) o.increment->accept(*this);
+    }
+}
+
+void Interpreter::visit(const BreakStmt &)
+{
+    throw Break{};
+}
+
+void Interpreter::visit(const ContinueStmt &)
+{
+    throw Continue{};
 }
 
 void Interpreter::visit(const PrintStmt &o)

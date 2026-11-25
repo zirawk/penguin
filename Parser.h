@@ -16,6 +16,7 @@ class Parser {
 private:
     const std::vector<Token> tokens;
     int current;
+    int loop_depth;
 
     bool at_end();
     const Token &peek();
@@ -44,7 +45,9 @@ private:
     std::unique_ptr<BlockStmt> block_statement();
     std::unique_ptr<IfStmt> if_statement();
     std::unique_ptr<WhileStmt> while_statement();
-    std::unique_ptr<Stmt> for_statement();
+    std::unique_ptr<BreakStmt> break_statement();
+    std::unique_ptr<ContinueStmt> continue_statement();
+    std::unique_ptr<ForStmt> for_statement();
     std::unique_ptr<PrintStmt> print_statement();
 
     void synchronize();

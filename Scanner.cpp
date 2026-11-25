@@ -7,9 +7,11 @@
 #include <vector>
 #include <string_view>
 
-constexpr std::array<std::pair<std::string_view, TokenType>, 16> keywords = {{
+constexpr std::array<std::pair<std::string_view, TokenType>, 18> keywords = {{
     { "and", TokenType::AND },
+    { "break", TokenType::BREAK },
     { "class", TokenType::CLASS },
+    { "continue", TokenType::CONTINUE },
     { "else", TokenType::ELSE },
     { "false", TokenType::FALSE },
     { "for", TokenType::FOR },

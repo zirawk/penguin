@@ -11,6 +11,9 @@ struct VarDeclStmt;
 struct BlockStmt;
 struct IfStmt;
 struct WhileStmt;
+struct ForStmt;
+struct BreakStmt;
+struct ContinueStmt;
 struct PrintStmt;
 
 class StmtVisitor {
@@ -21,6 +24,9 @@ public:
     virtual void visit(const BlockStmt &o) = 0;
     virtual void visit(const IfStmt &o) = 0;
     virtual void visit(const WhileStmt &o) = 0;
+    virtual void visit(const ForStmt &o) = 0;
+    virtual void visit(const BreakStmt &o) = 0;
+    virtual void visit(const ContinueStmt &o) = 0;
     virtual void visit(const PrintStmt &o) = 0;
 };
 
@@ -77,6 +83,35 @@ struct WhileStmt : Stmt {
 
     WhileStmt(std::unique_ptr<Expr> condition_, std::unique_ptr<Stmt> body_)
         : condition(std::move(condition_)), body(std::move(body_)) {}
+
+    virtual void accept(StmtVisitor &v) const override
+    { v.visit(*this); }
+};
+
+struct ForStmt : Stmt {
+    std::unique_ptr<Stmt> initializer;
+    std::unique_ptr<Expr> condition;
+    std::unique_ptr<Expr> increment;
+    std::unique_ptr<Stmt> body;
+
+    ForStmt(std::unique_ptr<Stmt> initializer_, std::unique_ptr<Expr> condition_,
+            std::unique_ptr<Expr> increment_, std::unique_ptr<Stmt> body_)
+        : initializer(std::move(initializer_)), condition(std::move(condition_)),
+          increment(std::move(increment_)), body(std::move(body_)) {}
+
+    virtual void accept(StmtVisitor &v) const override
+    { v.visit(*this);}
+};
+
+struct BreakStmt : Stmt {
+    BreakStmt() = default;
+
+    virtual void accept(StmtVisitor &v) const override
+    { v.visit(*this); }
+};
+
+struct ContinueStmt : Stmt {
+    ContinueStmt() = default;
 
     virtual void accept(StmtVisitor &v) const override
     { v.visit(*this); }

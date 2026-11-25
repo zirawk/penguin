@@ -34,6 +34,9 @@ private:
     virtual void visit(const BlockStmt &o) override;
     virtual void visit(const IfStmt &o) override;
     virtual void visit(const WhileStmt &o) override;
+    virtual void visit(const ForStmt &o) override;
+    virtual void visit(const BreakStmt &o) override;
+    virtual void visit(const ContinueStmt &o) override;
     virtual void visit(const PrintStmt &o) override;
 public:
     void interpret(const std::vector<std::unique_ptr<Stmt>> &stmts);
