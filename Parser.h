@@ -35,18 +35,23 @@ private:
     std::unique_ptr<Expr> term();
     std::unique_ptr<Expr> factor();
     std::unique_ptr<Expr> unary();
+    std::unique_ptr<Expr> call();
+    std::unique_ptr<Expr> finish_call(std::unique_ptr<Expr> callee);
     std::unique_ptr<Expr> primary();
 
     // Handle statements
     std::unique_ptr<Stmt> declaration();
     std::unique_ptr<VarDeclStmt> variable_declaration();
+    std::unique_ptr<FuncDeclStmt> function_declaration(std::string kind);
     std::unique_ptr<Stmt> statement();
+    std::vector<std::unique_ptr<Stmt>> block();
     std::unique_ptr<ExprStmt> expression_statement();
     std::unique_ptr<BlockStmt> block_statement();
     std::unique_ptr<IfStmt> if_statement();
     std::unique_ptr<WhileStmt> while_statement();
     std::unique_ptr<BreakStmt> break_statement();
     std::unique_ptr<ContinueStmt> continue_statement();
+    std::unique_ptr<ReturnStmt> return_statement();
     std::unique_ptr<ForStmt> for_statement();
     std::unique_ptr<PrintStmt> print_statement();
 

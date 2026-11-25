@@ -3,11 +3,13 @@
 
 #include "Token.h"
 #include <memory>
+#include <vector>
 
 struct Assign;
 struct Logical;
 struct Binary;
 struct Unary;
+struct Call;
 struct Grouping;
 struct Literal;
 struct Variable;
@@ -19,6 +21,7 @@ public:
     virtual void visit(const Logical &o) = 0;
     virtual void visit(const Binary &o) = 0;
     virtual void visit(const Unary &o) = 0;
+    virtual void visit(const Call &o) = 0;
     virtual void visit(const Grouping &o) = 0;
     virtual void visit(const Literal &o) = 0;
     virtual void visit(const Variable &o) = 0;
@@ -70,6 +73,18 @@ struct Unary : Expr {
 
     Unary(Token op_, std::unique_ptr<Expr> right_)
         : op(std::move(op_)), right(std::move(right_)) {}
+
+    virtual void accept(ExprVisitor &v) const override
+    { v.visit(*this); }
+};
+
+struct Call : Expr {
+    std::unique_ptr<Expr> callee;
+    std::vector<std::unique_ptr<Expr>> args;
+    Token rparen;
+
+    Call(std::unique_ptr<Expr> callee_, std::vector<std::unique_ptr<Expr>> args_, Token rparen_)
+        : callee(std::move(callee_)), args(std::move(args_)), rparen(std::move(rparen_)) {}
 
     virtual void accept(ExprVisitor &v) const override
     { v.visit(*this); }

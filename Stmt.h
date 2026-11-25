@@ -8,12 +8,14 @@
 
 struct ExprStmt;
 struct VarDeclStmt;
+struct FuncDeclStmt;
 struct BlockStmt;
 struct IfStmt;
 struct WhileStmt;
 struct ForStmt;
 struct BreakStmt;
 struct ContinueStmt;
+struct ReturnStmt;
 struct PrintStmt;
 
 class StmtVisitor {
@@ -21,12 +23,14 @@ public:
     virtual ~StmtVisitor() = default;
     virtual void visit(const ExprStmt &o) = 0;
     virtual void visit(const VarDeclStmt &o) = 0;
+    virtual void visit(const FuncDeclStmt &o) = 0;
     virtual void visit(const BlockStmt &o) = 0;
     virtual void visit(const IfStmt &o) = 0;
     virtual void visit(const WhileStmt &o) = 0;
     virtual void visit(const ForStmt &o) = 0;
     virtual void visit(const BreakStmt &o) = 0;
     virtual void visit(const ContinueStmt &o) = 0;
+    virtual void visit(const ReturnStmt &o) = 0;
     virtual void visit(const PrintStmt &o) = 0;
 };
 
@@ -50,6 +54,18 @@ struct VarDeclStmt : Stmt {
 
     VarDeclStmt(Token name_, std::unique_ptr<Expr> initializer_)
         : name(std::move(name_)), initializer(std::move(initializer_)) {}
+
+    virtual void accept(StmtVisitor &v) const override
+    { v.visit(*this); }
+};
+
+struct FuncDeclStmt : Stmt {
+    Token name;
+    std::vector<Token> params;
+    std::vector<std::unique_ptr<Stmt>> body;
+
+    FuncDeclStmt(Token name_, std::vector<Token> params_, std::vector<std::unique_ptr<Stmt>> body_)
+        : name(std::move(name_)), params(std::move(params_)), body(std::move(body_)) {}
 
     virtual void accept(StmtVisitor &v) const override
     { v.visit(*this); }
@@ -112,6 +128,17 @@ struct BreakStmt : Stmt {
 
 struct ContinueStmt : Stmt {
     ContinueStmt() = default;
+
+    virtual void accept(StmtVisitor &v) const override
+    { v.visit(*this); }
+};
+
+struct ReturnStmt : Stmt {
+    Token token; // 存 return
+    std::unique_ptr<Expr> value;
+
+    ReturnStmt(Token token_, std::unique_ptr<Expr> value_)
+        : token(std::move(token_)), value(std::move(value_)) {}
 
     virtual void accept(StmtVisitor &v) const override
     { v.visit(*this); }

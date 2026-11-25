@@ -13,7 +13,8 @@ class Interpreter : public ExprVisitor, public StmtVisitor {
     using enum TokenType;
 private:
     Environment global;
-    Environment *env = &global;
+    Environment *env;
+    std::vector<std::unique_ptr<Stmt>> kept_stmts;
     Value result;
 
     static double number(const Value &v, const Token &op);
@@ -24,6 +25,7 @@ private:
     virtual void visit(const Logical &o) override;
     virtual void visit(const Binary &o) override;
     virtual void visit(const Unary &o) override;
+    virtual void visit(const Call &o) override;
     virtual void visit(const Grouping &o) override;
     virtual void visit(const Literal &o) override;
     virtual void visit(const Variable &o) override;
@@ -31,15 +33,23 @@ private:
     // Visit statements
     virtual void visit(const ExprStmt &o) override;
     virtual void visit(const VarDeclStmt &o) override;
+    virtual void visit(const FuncDeclStmt &o) override;
     virtual void visit(const BlockStmt &o) override;
     virtual void visit(const IfStmt &o) override;
     virtual void visit(const WhileStmt &o) override;
     virtual void visit(const ForStmt &o) override;
     virtual void visit(const BreakStmt &o) override;
     virtual void visit(const ContinueStmt &o) override;
+    virtual void visit(const ReturnStmt &o) override;
     virtual void visit(const PrintStmt &o) override;
 public:
-    void interpret(const std::vector<std::unique_ptr<Stmt>> &stmts);
+    Interpreter();
+    void execute_block(const std::vector<std::unique_ptr<Stmt>> &stmts, Environment &nenv);
+    void interpret(std::vector<std::unique_ptr<Stmt>> stmts);
+};
+
+struct Return {
+    Value value;
 };
 
 #endif // INTERPRETER_H

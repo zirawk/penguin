@@ -1,6 +1,7 @@
 #include "value.h"
 #include <charconv>
 #include <cmath>
+#include <memory>
 #include <string>
 #include <system_error>
 #include <variant>
@@ -27,5 +28,7 @@ std::string stringify(const Value &v)
         return number_to_string(*d);
     if (auto s = std::get_if<std::string>(&v))
         return *s;
+    if (auto c = std::get_if<std::shared_ptr<Callable>>(&v))
+        return (*c)->str();
     return "nil";
 }

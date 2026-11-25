@@ -23,7 +23,7 @@ void run(std::string source)
 
     if (has_error) return;
 
-    interpreter.interpret(stmts);
+    interpreter.interpret(std::move(stmts));
 
     //AstPrinter printer;
     //std::cout << printer.print(*expr) << '\n';

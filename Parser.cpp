@@ -100,9 +100,9 @@ std::unique_ptr<Expr> Parser::logic_or()
 {
     auto expr = logic_and();
     while (match({OR})) {
-        Token op = previous();
+        const Token &op = previous();
         auto right = logic_and();
-        expr = std::make_unique<Logical>(std::move(expr), std::move(op), std::move(right));
+        expr = std::make_unique<Logical>(std::move(expr), op, std::move(right));
     }
     return expr;
 }
@@ -111,9 +111,9 @@ std::unique_ptr<Expr> Parser::logic_and()
 {
     auto expr = equality();
     while (match({AND})) {
-        Token op = previous();
+        const Token &op = previous();
         auto right = equality();
-        expr = std::make_unique<Logical>(std::move(expr), std::move(op), std::move(right));
+        expr = std::make_unique<Logical>(std::move(expr), op, std::move(right));
     }
     return expr;
 }
@@ -122,10 +122,10 @@ std::unique_ptr<Expr> Parser::equality()
 {
     auto expr = comparison();
     while (match({BANG_EQUAL, EQUAL_EQUAL})) {
-        Token op = previous();
+        const Token &op = previous();
         auto right = comparison();
         // 等号右侧为prvalue，移动构造，下同
-        expr = std::make_unique<Binary>(std::move(expr), std::move(op), std::move(right));
+        expr = std::make_unique<Binary>(std::move(expr), op, std::move(right));
     }
     return expr;
 }
@@ -134,9 +134,9 @@ std::unique_ptr<Expr> Parser::comparison()
 {
     auto expr = term();
     while (match({GREATER, GREATER_EQUAL, LESS, LESS_EQUAL})) {
-        Token op = previous();
+        const Token &op = previous();
         auto right = term();
-        expr = std::make_unique<Binary>(std::move(expr), std::move(op), std::move(right));
+        expr = std::make_unique<Binary>(std::move(expr), op, std::move(right));
     }
     return expr;
 }
@@ -145,9 +145,9 @@ std::unique_ptr<Expr> Parser::term()
 {
     auto expr = factor();
     while (match({PLUS, MINUS})) {
-        Token op = previous();
+        const Token &op = previous();
         auto right = factor();
-        expr = std::make_unique<Binary>(std::move(expr), std::move(op), std::move(right));
+        expr = std::make_unique<Binary>(std::move(expr), op, std::move(right));
     }
     return expr;
 }
@@ -156,9 +156,9 @@ std::unique_ptr<Expr> Parser::factor()
 {
     auto expr = unary();
     while (match({STAR, SLASH})) {
-        Token op = previous();
+        const Token &op = previous();
         auto right = unary();
-        expr = std::make_unique<Binary>(std::move(expr), std::move(op), std::move(right));
+        expr = std::make_unique<Binary>(std::move(expr), op, std::move(right));
     }
     return expr;
 }
@@ -166,11 +166,44 @@ std::unique_ptr<Expr> Parser::factor()
 std::unique_ptr<Expr> Parser::unary()
 {
     if (match({BANG, MINUS})) {
-        auto op = previous();
+        const Token &op = previous();
         // 不要对unique_ptr进行std::move，以保证拷贝消除
-        return std::make_unique<Unary>(std::move(op), unary());
+        return std::make_unique<Unary>(op, unary());
     }
-    return primary();
+    return call();
+}
+
+std::unique_ptr<Expr> Parser::call()
+{
+    auto expr = primary();
+
+    while (true) {
+        if (match({LEFT_PAREN})) {
+            // expr 求值结果为函数，生成对应的 Call
+            expr = finish_call(std::move(expr));
+        } else {
+            break;
+        }
+    }
+
+    return expr;
+}
+
+std::unique_ptr<Expr> Parser::finish_call(std::unique_ptr<Expr> callee)
+{
+    std::vector<std::unique_ptr<Expr>> args;
+    if (peek().type != RIGHT_PAREN) {
+        do {
+            if (args.size() >= 255) {
+                error(previous(), "Expect no more than 255 arguments.");
+                // TODO throw ParseError{};
+            }
+            args.push_back(expression());
+        } while (match({COMMA}));
+    }
+    const Token &rparen = consume(RIGHT_PAREN, "Expect ')' after arguments.");
+
+    return std::make_unique<Call>(std::move(callee), std::move(args), rparen);
 }
 
 std::unique_ptr<Expr> Parser::primary()
@@ -216,6 +249,7 @@ std::unique_ptr<Stmt> Parser::declaration()
 {
     try {
         if (match({VAR})) return variable_declaration();
+        if (match({FUN})) return function_declaration("function");
         return statement();
     } catch (const ParseError &) {
         // 语句作为恢复单位，在此 sync
@@ -238,6 +272,29 @@ std::unique_ptr<VarDeclStmt> Parser::variable_declaration()
     return std::make_unique<VarDeclStmt>(name, std::move(initializer));
 }
 
+std::unique_ptr<FuncDeclStmt> Parser::function_declaration(std::string kind)
+{
+    const Token &name = consume(IDENTIFIER, "Expect " + kind + " name.");
+    consume(LEFT_PAREN, "Expect '(' after " + kind + " name.");
+
+    std::vector<Token> params;
+    // 填充形参名
+    if (peek().type != RIGHT_PAREN) {
+        do {
+            if (params.size() >= 255) {
+                error(peek(), "Expect no more than 255 parameters.");
+            }
+            params.push_back(consume(IDENTIFIER, "Expect parameter name."));
+        } while (match({COMMA}));
+    }
+    consume(RIGHT_PAREN, "Expect ')' after parameters.");
+
+    consume(LEFT_BRACE, "Expect '{' before " + kind + " body.");
+    auto body = block();
+
+    return std::make_unique<FuncDeclStmt>(name, std::move(params), std::move(body));
+}
+
 std::unique_ptr<Stmt> Parser::statement()
 {
     if (match({PRINT})) return print_statement();
@@ -247,7 +304,20 @@ std::unique_ptr<Stmt> Parser::statement()
     if (match({FOR})) return for_statement();
     if (match({BREAK})) return break_statement();
     if (match({CONTINUE})) return continue_statement();
+    if (match({RETURN})) return return_statement();
     return expression_statement();
+}
+
+std::vector<std::unique_ptr<Stmt>> Parser::block()
+{
+    std::vector<std::unique_ptr<Stmt>> stmts;
+    // 为什么不 !match({RIGHT_BRACE}) && !at_end()
+    // 若这样做，就不能直接 consume 而要取 previous() 来判断是哪种情形
+    while (peek().type != RIGHT_BRACE && !at_end()) {
+        stmts.push_back(declaration());
+    }
+    consume(RIGHT_BRACE, "Expect '}' after block.");
+    return stmts;
 }
 
 std::unique_ptr<ExprStmt> Parser::expression_statement()
@@ -259,14 +329,7 @@ std::unique_ptr<ExprStmt> Parser::expression_statement()
 
 std::unique_ptr<BlockStmt> Parser::block_statement()
 {
-    std::vector<std::unique_ptr<Stmt>> stmts;
-    // 为什么不 !match({RIGHT_BRACE}) && !at_end()
-    // 若这样做，就不能直接 consume 而要取 previous() 来判断是哪种情形
-    while (peek().type != RIGHT_BRACE && !at_end()) {
-        stmts.push_back(declaration());
-    }
-    consume(RIGHT_BRACE, "Expect '}' after block.");
-    return std::make_unique<BlockStmt>(std::move(stmts));
+    return std::make_unique<BlockStmt>(block());
 }
 
 std::unique_ptr<IfStmt> Parser::if_statement()
@@ -336,6 +399,15 @@ std::unique_ptr<ContinueStmt> Parser::continue_statement()
     }
     consume(SEMICOLON, "Expect ';' after 'continue'.");
     return std::make_unique<ContinueStmt>();
+}
+
+std::unique_ptr<ReturnStmt> Parser::return_statement()
+{
+    const Token &token = previous();
+    std::unique_ptr<Expr> value = nullptr;
+    if (peek().type != SEMICOLON) value = expression();
+    consume(SEMICOLON, "Expect ';' after return value.");
+    return std::make_unique<ReturnStmt>(token, std::move(value));
 }
 
 // Desugar

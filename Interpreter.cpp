@@ -2,10 +2,13 @@
 #include "Environment.h"
 #include "Stmt.h"
 #include "Token.h"
+#include "Func.h"
 #include "value.h"
 #include "error.h"
+#include <chrono>
 #include <iostream>
 #include <memory>
+#include <string>
 #include <variant>
 #include <vector>
 
@@ -29,6 +32,28 @@ public:
 
 struct Break {};
 struct Continue {};
+
+class ClockFn : public Callable {
+public:
+    virtual unsigned arity() override
+    { return 0; }
+
+    virtual Value call(Interpreter &, const std::vector<Value> &) override
+    {
+        using namespace std::chrono;
+        return duration<double>(steady_clock::now().time_since_epoch()).count();
+    }
+
+    virtual std::string str() override
+    { return "<native fn clock>"; }
+};
+}
+
+Interpreter::Interpreter()
+{
+    env = &global;
+    
+    global.define("clock", std::make_shared<ClockFn>());
 }
 
 double Interpreter::number(const Value &v, const Token &op)
@@ -134,6 +159,36 @@ void Interpreter::visit(const Unary &o)
     }
 }
 
+void Interpreter::visit(const Call &o)
+{
+    o.callee->accept(*this);
+    // std::shared_ptr<Callable> *fn
+    auto fn = std::get_if<std::shared_ptr<Callable>>(&result);
+    
+    if (!fn) {
+        error(o.rparen, "Calling an uncallable target.");
+        throw RuntimeError{};
+    }
+
+    // shared_ptr 拷贝
+    auto func = *fn;
+
+    if (o.args.size() > func->arity()) {
+        error(o.rparen, "Expect no more than " + std::to_string(func->arity())
+                + " arguments but got " + std::to_string(o.args.size()) + ".");
+        throw RuntimeError{};
+    }
+
+    std::vector<Value> args;
+    for (const auto &arg : o.args) {
+        // 对每个参数求值
+        arg->accept(*this);
+        args.push_back(result);
+    }
+
+    result = func->call(*this, args);
+}
+
 void Interpreter::visit(const Grouping &o)
 {
     // visit后结果自然在result中
@@ -163,13 +218,18 @@ void Interpreter::visit(const VarDeclStmt &o)
     env->define(o.name.lexeme, result);
 }
 
+void Interpreter::visit(const FuncDeclStmt &o)
+{
+    // 构造Func，传入函数声明和全局环境
+    auto func = std::make_shared<Func>(&o, &global);
+    // 将函数加入当前环境
+    env->define(o.name.lexeme, func);
+}
+
 void Interpreter::visit(const BlockStmt &o)
 {
     Environment block(env);
-    // guard 分配在栈上，出栈析构(在block之前)
-    // 即使发生异常，也能恢复原环境
-    EnvGuard guard(env, &block);
-    for (auto &stmt : o.stmts) stmt->accept(*this);
+    execute_block(o.stmts, block);
 }
 
 void Interpreter::visit(const IfStmt &o)
@@ -221,17 +281,34 @@ void Interpreter::visit(const ContinueStmt &)
     throw Continue{};
 }
 
+void Interpreter::visit(const ReturnStmt &o)
+{
+    if (o.value) o.value->accept(*this);
+    else result = std::monostate{};
+    throw Return{result};
+}
+
 void Interpreter::visit(const PrintStmt &o)
 {
     o.expr->accept(*this);
     std::cout << stringify(result) << '\n';
 }
 
-void Interpreter::interpret(const std::vector<std::unique_ptr<Stmt>> &stmts)
+void Interpreter::execute_block(const std::vector<std::unique_ptr<Stmt>> &stmts, Environment &nenv)
 {
+    EnvGuard guard(env, &nenv);
+    for (const auto &stmt : stmts) stmt->accept(*this);
+}
+
+void Interpreter::interpret(std::vector<std::unique_ptr<Stmt>> stmts)
+{
+    unsigned first = kept_stmts.size();
+    for (auto &s : stmts) kept_stmts.push_back(std::move(s));
+
     try {
         // Interpreter as StmtVisitor，作用为执行语句
-        for (const auto &stmt : stmts) stmt->accept(*this);
+        for (unsigned i = first; i < kept_stmts.size(); ++i)
+            kept_stmts[i]->accept(*this);
     } catch (const RuntimeError &) {
         // error() 已报告，停止执行剩余语句
     }
