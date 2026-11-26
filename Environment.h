@@ -11,13 +11,17 @@ class Environment {
 private:
     std::shared_ptr<Environment> outer;
     std::unordered_map<std::string, Value> values;
+
+    Environment *ancestor(int distance);
 public:
     Environment();
     Environment(std::shared_ptr<Environment> out);
 
     void define(const std::string &name, const Value &val);
-    Value get(const Token &name) const;
+    Value get(const Token &name);
+    Value get_at(int distance, const Token &name);
     void assign(const Token &name, const Value &val);
+    void assign_at(int distance, const Token &name, const Value &val);
 };
 
 #endif // ENVIRONMENT_H

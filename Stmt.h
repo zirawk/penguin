@@ -120,25 +120,29 @@ struct ForStmt : Stmt {
 };
 
 struct BreakStmt : Stmt {
-    BreakStmt() = default;
+    Token keyword;
+
+    BreakStmt(Token keyword_) : keyword(std::move(keyword_)) {}
 
     virtual void accept(StmtVisitor &v) const override
     { v.visit(*this); }
 };
 
 struct ContinueStmt : Stmt {
-    ContinueStmt() = default;
+    Token keyword;
+
+    ContinueStmt(Token keyword_) : keyword(std::move(keyword_)) {}
 
     virtual void accept(StmtVisitor &v) const override
     { v.visit(*this); }
 };
 
 struct ReturnStmt : Stmt {
-    Token token; // 存 return
+    Token keyword;
     std::unique_ptr<Expr> value;
 
-    ReturnStmt(Token token_, std::unique_ptr<Expr> value_)
-        : token(std::move(token_)), value(std::move(value_)) {}
+    ReturnStmt(Token keyword_, std::unique_ptr<Expr> value_)
+        : keyword(std::move(keyword_)), value(std::move(value_)) {}
 
     virtual void accept(StmtVisitor &v) const override
     { v.visit(*this); }

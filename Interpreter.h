@@ -7,6 +7,7 @@
 #include "Token.h"
 #include "value.h"
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 class Interpreter : public ExprVisitor, public StmtVisitor {
@@ -14,11 +15,17 @@ class Interpreter : public ExprVisitor, public StmtVisitor {
 private:
     std::shared_ptr<Environment> env;
     std::shared_ptr<Environment> global;
+    std::unordered_map<const Expr *, int> locals;
+
     std::vector<std::unique_ptr<Stmt>> kept_stmts;
+
     Value result;
 
     static double number(const Value &v, const Token &op);
     static Value add(const Value &l, const Value &r, const Token &op);
+
+    Value evaluate(const Expr &expr);
+    void execute(const Stmt &stmt);
 
     // Visit expressions
     virtual void visit(const Assign &o) override;
@@ -44,6 +51,11 @@ private:
     virtual void visit(const PrintStmt &o) override;
 public:
     Interpreter();
+
+    // expr 为 Assign/Variable
+    // 将 expr 对应的 depth 存入 locals
+    void resolve(const Expr &expr, int depth);
+
     void execute_block(const std::vector<std::unique_ptr<Stmt>> &stmts, std::shared_ptr<Environment> nenv);
     void interpret(std::vector<std::unique_ptr<Stmt>> stmts);
 };

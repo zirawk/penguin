@@ -9,23 +9,8 @@
 #include <variant>
 #include <vector>
 
-namespace {
-class LoopGuard {
-private:
-    int &slot;
-public:
-    LoopGuard(int &slot_) : slot(slot_)
-    { ++slot; }
-
-    LoopGuard(const LoopGuard &) = delete;
-    LoopGuard &operator=(const LoopGuard &) = delete;
-
-    ~LoopGuard() { --slot; }
-};
-}
-
 Parser::Parser(std::vector<Token> tokens)
-    : tokens(std::move(tokens)), current(0), loop_depth(0) {}
+    : tokens(std::move(tokens)), current(0) {}
 
 bool Parser::at_end()
 {
@@ -345,8 +330,6 @@ std::unique_ptr<IfStmt> Parser::if_statement()
 
 std::unique_ptr<WhileStmt> Parser::while_statement()
 {
-    LoopGuard guard(loop_depth);
-
     consume(LEFT_PAREN, "Expect '(' after 'while'.");
     auto cond = expression();
     consume(RIGHT_PAREN, "Expect ')' after 'while' condition.");
@@ -357,8 +340,6 @@ std::unique_ptr<WhileStmt> Parser::while_statement()
 
 std::unique_ptr<ForStmt> Parser::for_statement()
 {
-    LoopGuard guard(loop_depth);
-
     consume(LEFT_PAREN, "Expect '(' after 'for'.");
 
     std::unique_ptr<Stmt> init;
@@ -383,22 +364,16 @@ std::unique_ptr<ForStmt> Parser::for_statement()
 
 std::unique_ptr<BreakStmt> Parser::break_statement()
 {
-    if (loop_depth == 0) {
-        error(previous(), "'break' not in loop.");
-        throw ParseError{};
-    }
+    const Token &kw = previous();
     consume(SEMICOLON, "Expect ';' after 'break'.");
-    return std::make_unique<BreakStmt>();
+    return std::make_unique<BreakStmt>(kw);
 }
 
 std::unique_ptr<ContinueStmt> Parser::continue_statement()
 {
-    if (loop_depth == 0) {
-        error(previous(), "'continue' not in loop.");
-        throw ParseError{};
-    }
+    const Token &kw = previous();
     consume(SEMICOLON, "Expect ';' after 'continue'.");
-    return std::make_unique<ContinueStmt>();
+    return std::make_unique<ContinueStmt>(kw);
 }
 
 std::unique_ptr<ReturnStmt> Parser::return_statement()

@@ -3,6 +3,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include "Resolver.h"
 #include "Scanner.h"
 #include "Parser.h"
 #include "Interpreter.h"
@@ -20,6 +21,11 @@ void run(std::string source)
 
     Parser parser(tokens);
     auto stmts = parser.parse();
+
+    if (has_error) return;
+
+    Resolver resolver(interpreter);
+    resolver.resolve(stmts);
 
     if (has_error) return;
 

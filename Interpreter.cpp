@@ -74,34 +74,62 @@ Value Interpreter::add(const Value &l, const Value &r, const Token &op)
     throw RuntimeError{};
 }
 
+Value Interpreter::evaluate(const Expr &expr)
+{
+    // Interpreter as ExprVisitor，作用为求值
+    expr.accept(*this);
+    return std::move(result);
+}
+
+void Interpreter::execute(const Stmt &stmt)
+{
+    // Interpreter as StmtVisitor，作用为执行语句
+    stmt.accept(*this);
+}
+
 // 赋值表达式 - 对表达式求值同时完成赋值
 void Interpreter::visit(const Assign &o)
 {
-    o.value->accept(*this);
-    env->assign(o.name, result);
+    Value val = evaluate(*o.value);
+    // env->assign(o.name, val);
+    auto it = locals.find(&o);
+    if (it != locals.end()) {
+        int distance = it->second;
+        env->assign_at(distance, o.name, val);
+    } else {
+        global->assign(o.name, val);
+    }
+    // result = std::move(val);
 }
 
 // 与 Lua 相似，逻辑运算的结果未必是布尔值
 void Interpreter::visit(const Logical &o)
 {
-    o.left->accept(*this);
+    Value left = evaluate(*o.left);
 
     // 短路
     if (o.op.type == AND) {
-        // left 为真 -> 返回 right  否则保持 left
-        if (boolean(result)) o.right->accept(*this);
+        // left 为假 -> 直接返回 left
+        if (!boolean(left)) {
+            result = std::move(left);
+            return;
+        }
     } else { // OR
-        // left 为假 -> 返回 right  否则保持 left
-        if (!boolean(result)) o.right->accept(*this);
+        // left 为真 -> 直接返回 left
+        if (boolean(left)) {
+            result = std::move(left);
+            return;
+        }
     }
+
+    // 未短路，返回 right
+    result = evaluate(*o.right);
 }
 
 void Interpreter::visit(const Binary &o)
 {
-    o.left->accept(*this);
-    Value l = result;
-    o.right->accept(*this);
-    Value r = result;
+    Value l = evaluate(*o.left);
+    Value r = evaluate(*o.right);
 
     switch (o.op.type) {
     case MINUS:
@@ -143,15 +171,14 @@ void Interpreter::visit(const Binary &o)
 
 void Interpreter::visit(const Unary &o)
 {
-    // 对右表达式求值，结果在result中
-    o.right->accept(*this);
+    Value right = evaluate(*o.right);
 
     switch (o.op.type) {
     case BANG:
-        result = !boolean(result);
+        result = !boolean(right);
         break;
     case MINUS:
-        result = -number(result, o.op);
+        result = -number(right, o.op);
         break;
     default:
         break; // Unreachable
@@ -160,10 +187,9 @@ void Interpreter::visit(const Unary &o)
 
 void Interpreter::visit(const Call &o)
 {
-    o.callee->accept(*this);
+    Value callee = evaluate(*o.callee);
     // std::shared_ptr<Callable> *fn
-    auto fn = std::get_if<std::shared_ptr<Callable>>(&result);
-    
+    auto fn = std::get_if<std::shared_ptr<Callable>>(&callee);
     if (!fn) {
         error(o.rparen, "Calling an uncallable target.");
         throw RuntimeError{};
@@ -181,8 +207,7 @@ void Interpreter::visit(const Call &o)
     std::vector<Value> args;
     for (const auto &arg : o.args) {
         // 对每个参数求值
-        arg->accept(*this);
-        args.push_back(result);
+        args.push_back(evaluate(*arg));
     }
 
     result = func->call(*this, args);
@@ -190,31 +215,36 @@ void Interpreter::visit(const Call &o)
 
 void Interpreter::visit(const Grouping &o)
 {
-    // visit后结果自然在result中
-    o.expr->accept(*this);
+    result = evaluate(*o.expr);
 }
 
 void Interpreter::visit(const Literal &o)
 {
+    // o.lit 有 const 属性，std::move 无效
     result = o.lit;
 }
 
 void Interpreter::visit(const Variable &o)
 {
-    result = env->get(o.name);
+    // result = env->get(o.name);
+    auto it = locals.find(&o);
+    if (it != locals.end()) {
+        result = env->get_at(it->second, o.name);
+    } else {
+        result = global->get(o.name);
+    }
 }
 
 void Interpreter::visit(const ExprStmt &o)
 {
-    // Interpreter as ExprVisitor，作用为求值
-    o.expr->accept(*this);
+    evaluate(*o.expr);
 }
 
 void Interpreter::visit(const VarDeclStmt &o)
 {
     // 对变量的初始化表达式求值
-    o.initializer->accept(*this);
-    env->define(o.name.lexeme, result);
+    Value init = evaluate(*o.initializer);
+    env->define(o.name.lexeme, init);
 }
 
 void Interpreter::visit(const FuncDeclStmt &o)
@@ -233,19 +263,19 @@ void Interpreter::visit(const BlockStmt &o)
 
 void Interpreter::visit(const IfStmt &o)
 {
-    o.condition->accept(*this);
-    if (boolean(result)) {
-        o.then_stmt->accept(*this);
+    Value cond = evaluate(*o.condition);
+    if (boolean(cond)) {
+        execute(*o.then_stmt);
     } else if (o.else_stmt) {
-        o.else_stmt->accept(*this);
+        execute(*o.else_stmt);
     }
 }
 
 void Interpreter::visit(const WhileStmt &o)
 {
-    while (o.condition->accept(*this), boolean(result)) {
+    while (boolean(evaluate(*o.condition))) {
         try {
-            o.body->accept(*this);
+            execute(*o.body);
         } catch (const Break &) {
             return; // 捕获 Break 信号，终止循环
         } catch (const Continue &) {}
@@ -257,16 +287,16 @@ void Interpreter::visit(const ForStmt &o)
     auto loop_env = std::make_shared<Environment>(env);
     EnvGuard guard(env, loop_env);
 
-    if (o.initializer) o.initializer->accept(*this);
+    if (o.initializer) execute(*o.initializer);
 
-    while (o.condition->accept(*this), boolean(result)) {
+    while (boolean(evaluate(*o.condition))) {
         try {
-            o.body->accept(*this);
+            execute(*o.body);
         } catch (const Break &) {
             return;
         } catch (const Continue &) {}
 
-        if (o.increment) o.increment->accept(*this);
+        if (o.increment) evaluate(*o.increment);
     }
 }
 
@@ -282,22 +312,27 @@ void Interpreter::visit(const ContinueStmt &)
 
 void Interpreter::visit(const ReturnStmt &o)
 {
-    if (o.value) o.value->accept(*this);
-    else result = std::monostate{};
-    throw Return{result};
+    Value val = std::monostate{};
+    if (o.value) val = evaluate(*o.value);
+    throw Return{val};
 }
 
 void Interpreter::visit(const PrintStmt &o)
 {
-    o.expr->accept(*this);
-    std::cout << stringify(result) << '\n';
+    Value val = evaluate(*o.expr);
+    std::cout << stringify(val) << '\n';
+}
+
+void Interpreter::resolve(const Expr &expr, int depth)
+{
+    locals[&expr] = depth;
 }
 
 void Interpreter::execute_block(const std::vector<std::unique_ptr<Stmt>> &stmts,
                                 std::shared_ptr<Environment> nenv)
 {
     EnvGuard guard(env, nenv);
-    for (const auto &stmt : stmts) stmt->accept(*this);
+    for (const auto &stmt : stmts) execute(*stmt);
 }
 
 void Interpreter::interpret(std::vector<std::unique_ptr<Stmt>> stmts)
@@ -306,9 +341,8 @@ void Interpreter::interpret(std::vector<std::unique_ptr<Stmt>> stmts)
     for (auto &s : stmts) kept_stmts.push_back(std::move(s));
 
     try {
-        // Interpreter as StmtVisitor，作用为执行语句
         for (unsigned i = first; i < kept_stmts.size(); ++i)
-            kept_stmts[i]->accept(*this);
+            execute(*kept_stmts[i]);
     } catch (const RuntimeError &) {
         // error() 已报告，停止执行剩余语句
     }

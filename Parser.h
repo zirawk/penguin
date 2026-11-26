@@ -16,7 +16,6 @@ class Parser {
 private:
     const std::vector<Token> tokens;
     int current;
-    int loop_depth;
 
     bool at_end();
     const Token &peek();

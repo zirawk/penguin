@@ -1,12 +1,5 @@
 #include "AstPrinter.h"
-
-std::string AstPrinter::print(const Expr &expr)
-{
-    // 同一个AstPrinter可能被多次使用，需清空
-    result.clear();
-    expr.accept(*this);
-    return result;
-}
+#include "value.h"
 
 void AstPrinter::visit(const Binary &o)
 {
@@ -32,3 +25,12 @@ void AstPrinter::visit(const Literal &o)
 {
     result = stringify(o.lit);
 }
+
+std::string AstPrinter::print(const Expr &expr)
+{
+    // 同一个AstPrinter可能被多次使用，需清空
+    result.clear();
+    expr.accept(*this);
+    return result;
+}
+
