@@ -12,8 +12,8 @@
 class Interpreter : public ExprVisitor, public StmtVisitor {
     using enum TokenType;
 private:
-    Environment global;
-    Environment *env;
+    std::shared_ptr<Environment> env;
+    std::shared_ptr<Environment> global;
     std::vector<std::unique_ptr<Stmt>> kept_stmts;
     Value result;
 
@@ -44,7 +44,7 @@ private:
     virtual void visit(const PrintStmt &o) override;
 public:
     Interpreter();
-    void execute_block(const std::vector<std::unique_ptr<Stmt>> &stmts, Environment &nenv);
+    void execute_block(const std::vector<std::unique_ptr<Stmt>> &stmts, std::shared_ptr<Environment> nenv);
     void interpret(std::vector<std::unique_ptr<Stmt>> stmts);
 };
 

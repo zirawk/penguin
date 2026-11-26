@@ -3,16 +3,17 @@
 
 #include "value.h"
 #include "Token.h"
+#include <memory>
 #include <string>
 #include <unordered_map>
 
 class Environment {
 private:
-    Environment *outer;
+    std::shared_ptr<Environment> outer;
     std::unordered_map<std::string, Value> values;
 public:
     Environment();
-    Environment(Environment *out);
+    Environment(std::shared_ptr<Environment> out);
 
     void define(const std::string &name, const Value &val);
     Value get(const Token &name) const;

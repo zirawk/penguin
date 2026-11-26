@@ -15,25 +15,26 @@
 namespace {
 class EnvGuard {
 private:
-    Environment *&slot;
-    Environment *saved;
+    std::shared_ptr<Environment> &slot;
+    std::shared_ptr<Environment> saved;
 public:
     // 初始化引用，保存原始值
-    EnvGuard(Environment *&slot_, Environment *e) : slot(slot_), saved(slot_)
-    { slot = e; } // 赋新值
+    EnvGuard(std::shared_ptr<Environment> &slot_, std::shared_ptr<Environment> next)
+        : slot(slot_), saved(slot_)
+    { slot = std::move(next); } // 赋新值
     
     EnvGuard(const EnvGuard &) = delete;
     EnvGuard &operator=(const EnvGuard &) = delete;
 
     // 析构时恢复原始值
     ~EnvGuard()
-    { slot = saved; }
+    { slot = std::move(saved); }
 };
 
 struct Break {};
 struct Continue {};
 
-class ClockFn : public Callable {
+class ClockFunc : public Callable {
 public:
     virtual unsigned arity() override
     { return 0; }
@@ -45,15 +46,13 @@ public:
     }
 
     virtual std::string str() override
-    { return "<native fn clock>"; }
+    { return "<native fun clock>"; }
 };
 }
 
-Interpreter::Interpreter()
+Interpreter::Interpreter() : env(std::make_shared<Environment>()), global(env)
 {
-    env = &global;
-    
-    global.define("clock", std::make_shared<ClockFn>());
+    global->define("clock", std::make_shared<ClockFunc>());
 }
 
 double Interpreter::number(const Value &v, const Token &op)
@@ -220,16 +219,16 @@ void Interpreter::visit(const VarDeclStmt &o)
 
 void Interpreter::visit(const FuncDeclStmt &o)
 {
-    // 构造Func，传入函数声明和全局环境
-    auto func = std::make_shared<Func>(&o, &global);
+    // 构造Func，传入函数声明和当前环境
+    auto func = std::make_shared<Func>(&o, env);
     // 将函数加入当前环境
     env->define(o.name.lexeme, func);
 }
 
 void Interpreter::visit(const BlockStmt &o)
 {
-    Environment block(env);
-    execute_block(o.stmts, block);
+    auto block_env = std::make_shared<Environment>(env);
+    execute_block(o.stmts, block_env);
 }
 
 void Interpreter::visit(const IfStmt &o)
@@ -255,8 +254,8 @@ void Interpreter::visit(const WhileStmt &o)
 
 void Interpreter::visit(const ForStmt &o)
 {
-    Environment loop(env);
-    EnvGuard guard(env, &loop);
+    auto loop_env = std::make_shared<Environment>(env);
+    EnvGuard guard(env, loop_env);
 
     if (o.initializer) o.initializer->accept(*this);
 
@@ -294,9 +293,10 @@ void Interpreter::visit(const PrintStmt &o)
     std::cout << stringify(result) << '\n';
 }
 
-void Interpreter::execute_block(const std::vector<std::unique_ptr<Stmt>> &stmts, Environment &nenv)
+void Interpreter::execute_block(const std::vector<std::unique_ptr<Stmt>> &stmts,
+                                std::shared_ptr<Environment> nenv)
 {
-    EnvGuard guard(env, &nenv);
+    EnvGuard guard(env, nenv);
     for (const auto &stmt : stmts) stmt->accept(*this);
 }
 

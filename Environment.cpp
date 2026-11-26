@@ -1,9 +1,10 @@
 #include "Environment.h"
 #include "error.h"
+#include <memory>
 
 Environment::Environment() : outer(nullptr) {}
 
-Environment::Environment(Environment *out) : outer(out) {}
+Environment::Environment(std::shared_ptr<Environment> out) : outer(out) {}
 
 void Environment::define(const std::string &name, const Value &val)
 {

@@ -410,51 +410,6 @@ std::unique_ptr<ReturnStmt> Parser::return_statement()
     return std::make_unique<ReturnStmt>(token, std::move(value));
 }
 
-// Desugar
-// std::unique_ptr<Stmt> Parser::for_statement()
-// {
-//     LoopGuard guard(loop_depth);
-// 
-//     consume(LEFT_PAREN, "Expect '(' after 'for'.");
-// 
-//     std::unique_ptr<Stmt> init;
-//     if (match({SEMICOLON})) init = nullptr;
-//     else if (match({VAR})) init = variable_declaration();
-//     else init = expression_statement();
-// 
-//     std::unique_ptr<Expr> cond = std::make_unique<Literal>(true);
-//     if (peek().type != SEMICOLON) cond = expression();
-//     consume(SEMICOLON, "Expect ';' after 'for' condition.");
-// 
-//     std::unique_ptr<Expr> incr = nullptr;
-//     if (peek().type != RIGHT_PAREN) incr = expression();
-//     consume(RIGHT_PAREN, "Expect ';' after 'for' clauses.");
-// 
-//     // body - for 循环体
-//     auto body = statement();
-// 
-//     if (incr) {
-//         std::vector<std::unique_ptr<Stmt>> while_body;
-//         while_body.push_back(std::move(body));
-//         while_body.push_back(std::make_unique<ExprStmt>(std::move(incr)));
-//         // body - for 循环体 + 增量表达式 组成的块
-//         body = std::make_unique<BlockStmt>(std::move(while_body));
-//     }
-// 
-//     // body - while 语句
-//     body = std::make_unique<WhileStmt>(std::move(cond), std::move(body));
-// 
-//     if (init) {
-//         std::vector<std::unique_ptr<Stmt>> whole_body;
-//         whole_body.push_back(std::move(init));
-//         whole_body.push_back(std::move(body));
-//         // body - 初始化语句 + while 语句 组成的块
-//         body = std::make_unique<BlockStmt>(std::move(whole_body));
-//     }
-// 
-//     return body;
-// }
-
 std::unique_ptr<PrintStmt> Parser::print_statement()
 {
     auto value = expression();
